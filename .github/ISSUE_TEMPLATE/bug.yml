@@ -1,0 +1,30 @@
+name: Bug
+description: Report incorrect behaviour of the application.
+title: "fix: "
+labels: []
+body:
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The exact command and input needed to reproduce the problem.
+      placeholder: |
+        1. Run `java -jar target/app.jar data/products.csv`.
+        2. The input file contains the line `Mouse;Accessories;0;12;5`.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+      placeholder: The line is skipped because price must be greater than 0.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      description: Include the output or the relevant part of `out/app.log`.
+      placeholder: The line is counted as valid and the average price is wrong.
+    validations:
+      required: true
