@@ -44,3 +44,4 @@ total stock (sum of `stock`, type long).
 - Conventional Commits (`feat(parser): ...`, `test:`, `ci:`, `build:`, `docs:`, `fix:`),
   one logical change per commit. PR body contains `Closes #N`.
 - Show the diff and explain each change briefly. Do not push without confirmation.
+- Output style: terse. Do not recap steps already shown or restate file contents; report only command results, diffs and decisions that need my input.
