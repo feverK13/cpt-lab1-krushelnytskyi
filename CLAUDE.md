@@ -38,7 +38,7 @@ total stock (sum of `stock`, type long).
 
 ## Workflow
 - Tasks live in GitHub Issues. Before starting, read the Issue with `gh issue view <N>` and follow its acceptance criteria.
-- One Issue = one branch `<type>/<N>-<slug>` = part of a PR. Stay within the Issue scope.
+- One PR covers a small group of related Issues; branch `<type>/<N>-<M>-<slug>`, one logical change per commit. Stay within the scope of the listed Issues.
 - Write tests from the Issue acceptance criteria first, then the implementation.
 - `clean verify` must be green before finishing a step.
 - Conventional Commits (`feat(parser): ...`, `test:`, `ci:`, `build:`, `docs:`, `fix:`),
