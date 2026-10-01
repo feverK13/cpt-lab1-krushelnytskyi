@@ -6,10 +6,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -100,5 +102,33 @@ class MainTest {
         Main.run(new String[] {"--version"}, out, err, logFile);
 
         assertFalse(Files.exists(logFile));
+    }
+
+    @Test
+    void normalRunWritesStartupAndShutdownToLogFile(@TempDir Path tempDir) throws IOException {
+        Path logFile = tempDir.resolve("app.log");
+
+        int exitCode = Main.run(new String[0], out, err, logFile);
+
+        assertEquals(0, exitCode);
+        List<String> lines = Files.readAllLines(logFile, StandardCharsets.UTF_8);
+        String content = String.join(System.lineSeparator(), lines);
+        assertTrue(content.contains("Application started"));
+        assertTrue(content.contains("Shutting down with exit code 0"));
+        for (String line : lines) {
+            assertTrue(line.contains(" | INFO | Main.run | line=- field=- | "), "line was: " + line);
+        }
+    }
+
+    @Test
+    void normalRunSurvivesUnwritableLogPath(@TempDir Path tempDir) throws IOException {
+        Path blockingFile = tempDir.resolve("not-a-directory");
+        Files.writeString(blockingFile, "x", StandardCharsets.UTF_8);
+        Path logFile = blockingFile.resolve("app.log");
+
+        int exitCode = Main.run(new String[0], out, err, logFile);
+
+        assertEquals(0, exitCode);
+        assertFalse(err().isEmpty());
     }
 }

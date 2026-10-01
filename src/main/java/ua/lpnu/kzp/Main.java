@@ -2,9 +2,11 @@ package ua.lpnu.kzp;
 
 import ua.lpnu.kzp.cli.CliParseResult;
 import ua.lpnu.kzp.cli.CliParser;
+import ua.lpnu.kzp.logging.AppLogger;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Locale;
 
 /**
@@ -58,11 +60,21 @@ public final class Main {
                 err.print(error.message());
                 yield EXIT_ARGUMENT_ERROR;
             }
-            case CliParseResult.Run run -> runApplication(run, logFile);
+            case CliParseResult.Run run -> runApplication(run, args, err, logFile);
         };
     }
 
-    private static int runApplication(CliParseResult.Run run, Path logFile) {
-        return EXIT_OK;
+    private static int runApplication(CliParseResult.Run run, String[] args, PrintStream err, Path logFile) {
+        try (AppLogger logger = AppLogger.create(logFile, false, err)) {
+            logger.info("Main.run", "Application started, version " + AppVersion.get());
+            logger.info("Main.run", "Arguments: " + Arrays.toString(args));
+            logger.info("Main.run", "Resolved input path: " + run.input());
+            logger.info("Main.run", "Resolved output path: " + run.output());
+
+            int exitCode = EXIT_OK;
+
+            logger.info("Main.run", "Shutting down with exit code " + exitCode);
+            return exitCode;
+        }
     }
 }
