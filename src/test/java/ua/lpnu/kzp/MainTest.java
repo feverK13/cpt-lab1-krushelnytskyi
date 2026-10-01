@@ -121,6 +121,26 @@ class MainTest {
     }
 
     @Test
+    void verboseMirrorsLogToStderr(@TempDir Path tempDir) throws IOException {
+        Path logFile = tempDir.resolve("app.log");
+
+        int exitCode = Main.run(new String[] {"--verbose"}, out, err, logFile);
+
+        assertEquals(0, exitCode);
+        assertTrue(err().contains("Application started"));
+        assertTrue(err().contains("Shutting down with exit code 0"));
+    }
+
+    @Test
+    void withoutVerboseStderrStaysEmptyOnNormalRun(@TempDir Path tempDir) {
+        Path logFile = tempDir.resolve("app.log");
+
+        Main.run(new String[0], out, err, logFile);
+
+        assertTrue(err().isEmpty());
+    }
+
+    @Test
     void normalRunSurvivesUnwritableLogPath(@TempDir Path tempDir) throws IOException {
         Path blockingFile = tempDir.resolve("not-a-directory");
         Files.writeString(blockingFile, "x", StandardCharsets.UTF_8);

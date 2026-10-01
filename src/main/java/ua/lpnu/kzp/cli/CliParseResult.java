@@ -18,10 +18,11 @@ public sealed interface CliParseResult {
     /**
      * Arguments were parsed successfully into a runnable configuration.
      *
-     * @param input  resolved input CSV path
-     * @param output resolved report output path
+     * @param input   resolved input CSV path
+     * @param output  resolved report output path
+     * @param verbose whether log records must also be mirrored to stderr
      */
-    record Run(Path input, Path output) implements CliParseResult {
+    record Run(Path input, Path output, boolean verbose) implements CliParseResult {
     }
 
     /**

@@ -22,6 +22,26 @@ class CliParserTest {
         CliParseResult.Run run = assertInstanceOf(CliParseResult.Run.class, result);
         assertEquals(CliParser.DEFAULT_INPUT, run.input());
         assertEquals(CliParser.DEFAULT_OUTPUT, run.output());
+        assertEquals(false, run.verbose());
+    }
+
+    @Test
+    void verboseFlagIsRecognised() {
+        CliParseResult result = CliParser.parse(new String[] {"--verbose"});
+
+        CliParseResult.Run run = assertInstanceOf(CliParseResult.Run.class, result);
+        assertTrue(run.verbose());
+    }
+
+    @Test
+    void verboseCombinesWithInputAndOutput() {
+        CliParseResult result =
+                CliParser.parse(new String[] {"--input", "in.csv", "--output", "out.txt", "--verbose"});
+
+        CliParseResult.Run run = assertInstanceOf(CliParseResult.Run.class, result);
+        assertEquals(Path.of("in.csv"), run.input());
+        assertEquals(Path.of("out.txt"), run.output());
+        assertTrue(run.verbose());
     }
 
     @Test

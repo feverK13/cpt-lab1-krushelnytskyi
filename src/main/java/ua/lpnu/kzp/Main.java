@@ -65,7 +65,7 @@ public final class Main {
     }
 
     private static int runApplication(CliParseResult.Run run, String[] args, PrintStream err, Path logFile) {
-        try (AppLogger logger = AppLogger.create(logFile, false, err)) {
+        try (AppLogger logger = AppLogger.create(logFile, run.verbose(), err)) {
             logger.info("Main.run", "Application started, version " + AppVersion.get());
             logger.info("Main.run", "Arguments: " + Arrays.toString(args));
             logger.info("Main.run", "Resolved input path: " + run.input());

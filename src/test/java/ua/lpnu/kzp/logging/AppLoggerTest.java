@@ -114,6 +114,35 @@ class AppLoggerTest {
     }
 
     @Test
+    void verboseMirrorsRecordsToErr(@TempDir Path tempDir) throws IOException {
+        Path logFile = tempDir.resolve("app.log");
+        ByteArrayOutputStream errBuffer = new ByteArrayOutputStream();
+        PrintStream err = new PrintStream(errBuffer, true, StandardCharsets.UTF_8);
+
+        try (AppLogger logger = AppLogger.create(logFile, true, err)) {
+            logger.info("Main.run", "mirrored message");
+        }
+
+        String errContent = errBuffer.toString(StandardCharsets.UTF_8);
+        assertTrue(errContent.contains("mirrored message"));
+        String firstLine = errContent.lines().findFirst().orElseThrow();
+        assertTrue(firstLine.matches(LINE_PATTERN), "line was: " + firstLine);
+    }
+
+    @Test
+    void nonVerboseDoesNotWriteToErr(@TempDir Path tempDir) throws IOException {
+        Path logFile = tempDir.resolve("app.log");
+        ByteArrayOutputStream errBuffer = new ByteArrayOutputStream();
+        PrintStream err = new PrintStream(errBuffer, true, StandardCharsets.UTF_8);
+
+        try (AppLogger logger = AppLogger.create(logFile, false, err)) {
+            logger.info("Main.run", "not mirrored");
+        }
+
+        assertEquals("", errBuffer.toString(StandardCharsets.UTF_8));
+    }
+
+    @Test
     void unwritableLogPathPrintsWarningToErrAndDoesNotThrow(@TempDir Path tempDir) throws IOException {
         Path blockingFile = tempDir.resolve("not-a-directory");
         Files.writeString(blockingFile, "x", StandardCharsets.UTF_8);

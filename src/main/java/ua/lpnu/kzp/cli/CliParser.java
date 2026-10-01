@@ -7,8 +7,8 @@ import java.util.Locale;
  * Parses command line arguments into a {@link CliParseResult}.
  *
  * <p>Recognised options: {@code --help}, {@code --version}, {@code --input <path>},
- * {@code --output <path>}. {@code --help} takes precedence over every other argument, and
- * {@code --version} takes precedence over any parsing error.</p>
+ * {@code --output <path>}, {@code --verbose}. {@code --help} takes precedence over every other
+ * argument, and {@code --version} takes precedence over any parsing error.</p>
  */
 public final class CliParser {
 
@@ -22,6 +22,7 @@ public final class CliParser {
     private static final String VERSION_OPTION = "--version";
     private static final String INPUT_OPTION = "--input";
     private static final String OUTPUT_OPTION = "--output";
+    private static final String VERBOSE_OPTION = "--verbose";
 
     private CliParser() {
     }
@@ -46,6 +47,7 @@ public final class CliParser {
 
         Path input = DEFAULT_INPUT;
         Path output = DEFAULT_OUTPUT;
+        boolean verbose = false;
 
         for (int i = 0; i < args.length; i++) {
             String arg = args[i];
@@ -62,13 +64,14 @@ public final class CliParser {
                     }
                     output = Path.of(args[++i]);
                 }
+                case VERBOSE_OPTION -> verbose = true;
                 default -> {
                     return unknownArgumentError(arg);
                 }
             }
         }
 
-        return new CliParseResult.Run(input, output);
+        return new CliParseResult.Run(input, output, verbose);
     }
 
     /**
@@ -87,6 +90,7 @@ public final class CliParser {
                   --version           показати версію програми та завершити роботу%n
                   --input <шлях>      шлях до вхідного CSV-файлу (типово: data/input.csv)%n
                   --output <шлях>     шлях до файлу звіту (типово: out/report.txt)%n
+                  --verbose           дублювати журнал подій у stderr%n
                 """);
     }
 
