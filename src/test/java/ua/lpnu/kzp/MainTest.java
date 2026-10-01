@@ -1,19 +1,104 @@
 package ua.lpnu.kzp;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Placeholder test proving JUnit 5 is wired into the build.
- *
- * <p>This is not a real test of application behaviour; it is replaced by the full suite described
- * in Issue #12.</p>
+ * Integration tests for {@link Main#run}: argument handling, exit codes and side effects.
  */
 class MainTest {
 
+    private final ByteArrayOutputStream outBuffer = new ByteArrayOutputStream();
+    private final ByteArrayOutputStream errBuffer = new ByteArrayOutputStream();
+    private final PrintStream out = new PrintStream(outBuffer, true, StandardCharsets.UTF_8);
+    private final PrintStream err = new PrintStream(errBuffer, true, StandardCharsets.UTF_8);
+
+    private String out() {
+        return outBuffer.toString(StandardCharsets.UTF_8);
+    }
+
+    private String err() {
+        return errBuffer.toString(StandardCharsets.UTF_8);
+    }
+
     @Test
-    void mainRunsWithoutArguments() {
-        assertDoesNotThrow(() -> Main.main(new String[0]));
+    void noArgumentsExitsWithZero(@TempDir Path tempDir) {
+        int exitCode = Main.run(new String[0], out, err, tempDir.resolve("app.log"));
+
+        assertEquals(0, exitCode);
+    }
+
+    @Test
+    void helpPrintsUsageAndExitsZero(@TempDir Path tempDir) {
+        int exitCode = Main.run(new String[] {"--help"}, out, err, tempDir.resolve("app.log"));
+
+        assertEquals(0, exitCode);
+        assertTrue(out().contains("--help"));
+        assertTrue(err().isEmpty());
+    }
+
+    @Test
+    void versionPrintsVersionAndExitsZero(@TempDir Path tempDir) {
+        int exitCode = Main.run(new String[] {"--version"}, out, err, tempDir.resolve("app.log"));
+
+        assertEquals(0, exitCode);
+        assertEquals(AppVersion.get(), out().strip());
+        assertTrue(err().isEmpty());
+    }
+
+    @Test
+    void helpTakesPrecedenceOverVersion(@TempDir Path tempDir) {
+        int exitCode = Main.run(new String[] {"--version", "--help"}, out, err, tempDir.resolve("app.log"));
+
+        assertEquals(0, exitCode);
+        assertTrue(out().contains("--help"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"--bogus", "-x"})
+    void unknownArgumentExitsWithTwo(String argument, @TempDir Path tempDir) {
+        int exitCode = Main.run(new String[] {argument}, out, err, tempDir.resolve("app.log"));
+
+        assertEquals(2, exitCode);
+        assertTrue(err().contains("--help"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"--input", "--output"})
+    void missingValueExitsWithTwo(String option, @TempDir Path tempDir) {
+        int exitCode = Main.run(new String[] {option}, out, err, tempDir.resolve("app.log"));
+
+        assertEquals(2, exitCode);
+        assertTrue(err().contains("--help"));
+    }
+
+    @Test
+    void helpCreatesNoFiles(@TempDir Path tempDir) {
+        Path logFile = tempDir.resolve("app.log");
+
+        Main.run(new String[] {"--help"}, out, err, logFile);
+
+        assertFalse(Files.exists(logFile));
+    }
+
+    @Test
+    void versionCreatesNoFiles(@TempDir Path tempDir) {
+        Path logFile = tempDir.resolve("app.log");
+
+        Main.run(new String[] {"--version"}, out, err, logFile);
+
+        assertFalse(Files.exists(logFile));
     }
 }
