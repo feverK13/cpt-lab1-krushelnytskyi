@@ -133,6 +133,21 @@ class CliParserTest {
     }
 
     @Test
+    void usageEndsEveryLineWithPlatformLineSeparator() {
+        String usage = CliParser.usage();
+        String separator = System.lineSeparator();
+
+        assertTrue(usage.endsWith(separator));
+        String withoutTrailingSeparator = usage.substring(0, usage.length() - separator.length());
+        String[] lines = withoutTrailingSeparator.split(separator, -1);
+        for (String line : lines) {
+            assertTrue(!line.contains("\n") && !line.contains("%n"),
+                    "line should contain neither a literal newline nor a stray %n token: " + line);
+        }
+        assertEquals(withoutTrailingSeparator, String.join(separator, lines));
+    }
+
+    @Test
     void missingValueErrorMessageIsUkrainian() {
         CliParseResult result = CliParser.parse(new String[] {"--input"});
 

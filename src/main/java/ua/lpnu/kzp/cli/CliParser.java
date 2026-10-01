@@ -1,6 +1,7 @@
 package ua.lpnu.kzp.cli;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -74,24 +75,23 @@ public final class CliParser {
         return new CliParseResult.Run(input, output, verbose);
     }
 
+    private static final List<String> USAGE_LINES = List.of(
+            "Використання: lab01 [опції]",
+            "",
+            "Опції:",
+            "  --help              показати цю довідку та завершити роботу",
+            "  --version           показати версію програми та завершити роботу",
+            "  --input <шлях>      шлях до вхідного CSV-файлу (типово: data/input.csv)",
+            "  --output <шлях>     шлях до файлу звіту (типово: out/report.txt)",
+            "  --verbose           дублювати журнал подій у stderr");
+
     /**
      * Renders the Ukrainian usage text shown for {@code --help}.
      *
      * @return usage text terminated with a platform-independent line separator
      */
     public static String usage() {
-        return String.format(
-                Locale.ROOT,
-                """
-                Використання: lab01 [опції]%n
-                %n
-                Опції:%n
-                  --help              показати цю довідку та завершити роботу%n
-                  --version           показати версію програми та завершити роботу%n
-                  --input <шлях>      шлях до вхідного CSV-файлу (типово: data/input.csv)%n
-                  --output <шлях>     шлях до файлу звіту (типово: out/report.txt)%n
-                  --verbose           дублювати журнал подій у stderr%n
-                """);
+        return String.join(System.lineSeparator(), USAGE_LINES) + System.lineSeparator();
     }
 
     private static CliParseResult.Error unknownArgumentError(String argument) {
