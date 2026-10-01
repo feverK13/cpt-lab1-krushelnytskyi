@@ -16,7 +16,7 @@ import java.util.logging.LogRecord;
 final class AppLogFormatter extends Formatter {
 
     private static final DateTimeFormatter TIMESTAMP_FORMATTER =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.ROOT);
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSxxx", Locale.ROOT);
 
     @Override
     public String format(LogRecord record) {
