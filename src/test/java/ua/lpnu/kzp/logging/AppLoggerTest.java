@@ -96,6 +96,21 @@ class AppLoggerTest {
     }
 
     @Test
+    void cyrillicPayloadRoundTripsThroughLogFile(@TempDir Path tempDir) throws IOException {
+        Path logFile = tempDir.resolve("app.log");
+        ByteArrayOutputStream errBuffer = new ByteArrayOutputStream();
+        PrintStream err = new PrintStream(errBuffer, true, StandardCharsets.UTF_8);
+        String rawLine = "Ноутбук;Комп'ютери;abc;24;5";
+
+        try (AppLogger logger = AppLogger.create(logFile, false, err)) {
+            logger.warn("Reader.readLine", 3, "price", "Invalid line: " + rawLine);
+        }
+
+        List<String> lines = readLogLines(logFile);
+        assertTrue(lines.get(0).contains(rawLine));
+    }
+
+    @Test
     void logFileIsOverwrittenOnEachRun(@TempDir Path tempDir) throws IOException {
         Path logFile = tempDir.resolve("app.log");
         ByteArrayOutputStream errBuffer = new ByteArrayOutputStream();
