@@ -23,16 +23,18 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+          # Caches ~/.m2/repository keyed on the hash of pom.xml.
+          cache: maven
 
       # Unix-like runners use the shell wrapper script.
       - name: Verify on Unix
         if: runner.os != 'Windows'
-        run: ./mvnw -B verify
+        run: ./mvnw -B verify -Dci.build.number=${{ github.run_number }}
 
       # Windows runners use the batch wrapper script.
       - name: Verify on Windows
         if: runner.os == 'Windows'
-        run: .\mvnw.cmd -B verify
+        run: .\mvnw.cmd -B verify "-Dci.build.number=${{ github.run_number }}"
 
       # Tests must write only into @TempDir, never into the project directory.
       - name: Check that the test run created no out/ directory
@@ -49,6 +51,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: jar-${{ matrix.os }}
+          name: jar-${{ matrix.os }}-build-${{ github.run_number }}
           path: target/lab01-*.jar
           if-no-files-found: error
