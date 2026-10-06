@@ -33,12 +33,16 @@ public final class Main {
     }
 
     /**
-     * Application entry point.
+     * Application entry point. Console output is always encoded as UTF-8.
      *
      * @param args command line arguments
      */
     public static void main(String[] args) {
-        int exitCode = run(args, System.out, System.err, Path.of("out", "app.log"));
+        PrintStream out = ConsoleStreams.utf8(System.out);
+        PrintStream err = ConsoleStreams.utf8(System.err);
+        int exitCode = run(args, out, err, Path.of("out", "app.log"));
+        out.flush();
+        err.flush();
         if (exitCode != EXIT_OK) {
             System.exit(exitCode);
         }
