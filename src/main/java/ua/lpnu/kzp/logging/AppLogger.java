@@ -118,6 +118,16 @@ public final class AppLogger implements AutoCloseable {
         log(Level.SEVERE, location, null, null, message, throwable);
     }
 
+    /**
+     * Builds the {@code Class.method | line=N field=X | message} body and logs it.
+     *
+     * @param level     record level
+     * @param location  "Class.method" of the caller
+     * @param line      1-based line number, or {@code null}, rendered as {@code -}
+     * @param field     field name, or {@code null}, rendered as {@code -}
+     * @param message   message text
+     * @param throwable exception whose stack trace is appended, or {@code null}
+     */
     private void log(Level level, String location, Integer line, String field, String message, Throwable throwable) {
         String lineText = line == null ? "-" : String.valueOf(line);
         String fieldText = field == null ? "-" : field;

@@ -80,6 +80,17 @@ public final class Main {
         };
     }
 
+    /**
+     * Opens the logger, logs startup and the resolved arguments, runs the pipeline and logs the
+     * exit code.
+     *
+     * @param run     parsed configuration
+     * @param args    raw arguments, logged as given
+     * @param out     stream for the report
+     * @param err     stream for error messages and the verbose log mirror
+     * @param logFile path to the log file
+     * @return the process exit code
+     */
     private static int runApplication(
             CliParseResult.Run run, String[] args, PrintStream out, PrintStream err, Path logFile) {
         try (AppLogger logger = AppLogger.create(logFile, run.verbose(), err)) {
@@ -94,6 +105,17 @@ public final class Main {
         }
     }
 
+    /**
+     * Reads and validates the input, computes the metrics, prints the report and writes it to
+     * the output file.
+     *
+     * @param run    parsed configuration
+     * @param out    stream for the report
+     * @param err    stream for Ukrainian I/O error messages
+     * @param logger application logger
+     * @return {@code 0} on success, {@code 1} if there are no valid records, {@code 2} if the
+     *         input cannot be read or the report cannot be written
+     */
     private static int process(CliParseResult.Run run, PrintStream out, PrintStream err, AppLogger logger) {
         List<String> lines;
         try {
@@ -125,6 +147,13 @@ public final class Main {
         return metrics.isPresent() ? EXIT_OK : EXIT_NO_VALID_RECORDS;
     }
 
+    /**
+     * Builds the Ukrainian message for a failed input read.
+     *
+     * @param input path of the input file
+     * @param e     the read failure
+     * @return "file not found" for a missing file, otherwise a generic read error with the cause
+     */
     private static String readErrorMessage(Path input, IOException e) {
         if (e instanceof NoSuchFileException) {
             return String.format(Locale.ROOT, "Файл не знайдено: %s%n", input);

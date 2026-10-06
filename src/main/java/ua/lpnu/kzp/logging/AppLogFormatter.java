@@ -18,6 +18,13 @@ final class AppLogFormatter extends Formatter {
     private static final DateTimeFormatter TIMESTAMP_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSxxx", Locale.ROOT);
 
+    /**
+     * Renders one record as {@code timestamp | LEVEL | message}, followed by the stack trace of
+     * the attached exception, if any.
+     *
+     * @param record the record to render; its message already holds the location, line and field
+     * @return the rendered record, ending with the platform line separator
+     */
     @Override
     public String format(LogRecord record) {
         String timestamp = TIMESTAMP_FORMATTER.format(record.getInstant().atZone(ZoneId.systemDefault()));
@@ -36,6 +43,12 @@ final class AppLogFormatter extends Formatter {
         return line.toString();
     }
 
+    /**
+     * Maps a {@code java.util.logging} level to the label used in the log file.
+     *
+     * @param level the record level
+     * @return {@code ERROR} for SEVERE and above, {@code WARN} for WARNING, {@code INFO} otherwise
+     */
     private static String mapLevel(Level level) {
         if (level.intValue() >= Level.SEVERE.intValue()) {
             return "ERROR";
