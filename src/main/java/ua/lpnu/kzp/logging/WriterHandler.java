@@ -30,6 +30,12 @@ final class WriterHandler extends Handler {
         setFormatter(formatter);
     }
 
+    /**
+     * Writes and flushes the formatted record if it passes the level and filter checks. A write
+     * failure is reported to the error manager instead of being thrown.
+     *
+     * @param record the record to write
+     */
     @Override
     public void publish(LogRecord record) {
         if (!isLoggable(record)) {
@@ -43,6 +49,9 @@ final class WriterHandler extends Handler {
         }
     }
 
+    /**
+     * Flushes the writer; a failure is reported to the error manager instead of being thrown.
+     */
     @Override
     public void flush() {
         try {
@@ -52,6 +61,10 @@ final class WriterHandler extends Handler {
         }
     }
 
+    /**
+     * Flushes the writer and closes it only if this handler owns it. A close failure is reported
+     * to the error manager instead of being thrown.
+     */
     @Override
     public void close() {
         flush();

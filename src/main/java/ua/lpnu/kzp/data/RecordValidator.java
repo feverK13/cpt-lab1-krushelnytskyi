@@ -72,6 +72,13 @@ public final class RecordValidator {
         return new LineResult.Valid(lineNumber, fields);
     }
 
+    /**
+     * Checks a trimmed price: plain decimal, finite as {@code double}, strictly positive.
+     * {@code -0} and {@code -0.0} are rejected as not positive, not as negative.
+     *
+     * @param value the trimmed price field
+     * @return the first failing reason, or {@code null} if the price is valid
+     */
     private static ValidationError validatePrice(String value) {
         if (value.isEmpty()) {
             return ValidationError.EMPTY_FIELD;
@@ -92,6 +99,15 @@ public final class RecordValidator {
         return null;
     }
 
+    /**
+     * Checks a trimmed integer field: plain integer, not negative, at most
+     * {@link Integer#MAX_VALUE}. The value is parsed as {@link BigInteger} so overflow is
+     * detected instead of wrapping. A decimal such as {@code 12.5} is reported as not an integer
+     * rather than not a number.
+     *
+     * @param value the trimmed warranty or stock field
+     * @return the first failing reason, or {@code null} if the value is valid
+     */
     private static ValidationError validateNonNegativeInt(String value) {
         if (value.isEmpty()) {
             return ValidationError.EMPTY_FIELD;
