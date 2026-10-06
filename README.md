@@ -71,6 +71,8 @@ report with its line number and reason, and processing continues.
 | Warranty/stock not negative | `Рядок 12: запас: від'ємне значення: "-3"` |
 | Warranty/stock fits into int | `Рядок 13: запас: завелике значення: "2147483648"` |
 
+Line numbers in the examples are illustrative.
+
 ## Output
 
 Real output of `java -jar target/lab01-1.0.0.jar` for [data/input.csv](data/input.csv)
@@ -114,11 +116,12 @@ parent directories are created. Without valid records the table is replaced by
 
 ## Logging
 
-Every run except `--help`, `--version` and argument errors writes `out/app.log` in UTF-8 (overwritten each run) through
-`java.util.logging`. `--verbose` mirrors the records to stderr; otherwise stderr carries only
-error messages. Format: `ISO-8601 time | LEVEL | Class.method | line=N field=X | message`, with
-`-` for an absent line or field. ERROR records include the stack trace. If the log file cannot
-be created, a warning is printed to stderr and the run continues.
+Every run except `--help`, `--version` and argument errors writes `out/app.log` in UTF-8
+(overwritten each run) through `java.util.logging`. `--verbose` mirrors the records to stderr;
+otherwise stderr carries only error messages. Format:
+`ISO-8601 time | LEVEL | Class.method | line=N field=X | message`, with `-` for an absent line or
+field. ERROR records include the stack trace. If the log file cannot be created, a warning is
+printed to stderr and the run continues.
 
 ```text
 2026-10-06T22:30:27.829+03:00 | INFO | Main.run | line=- field=- | Application started, version 1.0.0
