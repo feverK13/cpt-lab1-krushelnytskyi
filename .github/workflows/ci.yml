@@ -41,6 +41,20 @@ jobs:
         shell: bash
         run: test ! -e out
 
+      # Record which OS, CPU architecture and JDK this job runs on.
+      - name: Show platform
+        shell: bash
+        run: |
+          echo "OS=$RUNNER_OS ARCH=$RUNNER_ARCH uname=$(uname -m)"
+          java -version
+
+      # Start the freshly built shaded JAR; bash -e fails the job on a non-zero exit code.
+      - name: Smoke run
+        shell: bash
+        run: |
+          java -jar target/lab01-1.0.0.jar --version
+          java -jar target/lab01-1.0.0.jar --input data/input.csv --output "$RUNNER_TEMP/report.txt"
+
       - name: Upload JaCoCo report
         if: matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v4
