@@ -25,6 +25,7 @@ class MainTest {
 
     private static final String VALID_RECORD = "Монітор Dell S2425H;Монітори;6499.00;36;12";
     private static final String NO_RECORDS_MESSAGE = "Немає жодного коректного запису.";
+    private static final String SKIPPED_HEADER = "Пропущені рядки:";
     private static final String BOM = String.valueOf((char) 0xFEFF);
 
     private final ByteArrayOutputStream outBuffer = new ByteArrayOutputStream();
@@ -47,11 +48,31 @@ class MainTest {
     }
 
     private int runWith(Path input, Path logFile, String... extraArgs) {
-        String[] args = new String[extraArgs.length + 2];
+        return runWith(input, input.toAbsolutePath().getParent().resolve("report.txt"), logFile, extraArgs);
+    }
+
+    private int runWith(Path input, Path output, Path logFile, String... extraArgs) {
+        String[] args = new String[extraArgs.length + 4];
         args[0] = "--input";
         args[1] = input.toString();
-        System.arraycopy(extraArgs, 0, args, 2, extraArgs.length);
+        args[2] = "--output";
+        args[3] = output.toString();
+        System.arraycopy(extraArgs, 0, args, 4, extraArgs.length);
         return Main.run(args, out, err, logFile);
+    }
+
+    private static String metricValue(String report, String label) {
+        return report.lines()
+                .filter(line -> line.startsWith(label + " "))
+                .map(line -> line.substring(label.length()).strip())
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("no row " + label + " in: " + report));
+    }
+
+    private static List<String> skippedSection(String report) {
+        List<String> lines = report.lines().toList();
+        int header = lines.indexOf(SKIPPED_HEADER);
+        return header < 0 ? List.of() : lines.subList(header + 1, lines.size());
     }
 
     @Test
@@ -118,13 +139,16 @@ class MainTest {
     }
 
     @Test
-    void validInputExitsWithZeroAndReportsNothing(@TempDir Path tempDir) throws IOException {
+    void validInputPrintsReportWithoutSkippedSectionAndExitsZero(@TempDir Path tempDir)
+            throws IOException {
         Path file = input(tempDir, VALID_RECORD + "\n");
 
         int exitCode = runWith(file, tempDir.resolve("app.log"));
 
         assertEquals(0, exitCode);
-        assertTrue(out().isEmpty(), "out was: " + out());
+        assertEquals("1", metricValue(out(), "Кількість коректних записів"));
+        assertTrue(out().contains("Пропущено рядків: 0"), "out was: " + out());
+        assertFalse(out().contains(SKIPPED_HEADER));
         assertTrue(err().isEmpty());
     }
 
@@ -135,7 +159,8 @@ class MainTest {
         int exitCode = runWith(file, tempDir.resolve("app.log"));
 
         assertEquals(0, exitCode);
-        assertTrue(out().isEmpty(), "out was: " + out());
+        assertEquals("2", metricValue(out(), "Кількість коректних записів"));
+        assertTrue(out().contains("Пропущено рядків: 0"), "out was: " + out());
     }
 
     @Test
@@ -184,7 +209,8 @@ class MainTest {
                         "Рядок 5: гарантія: має бути цілим числом: \"12.5\"",
                         "Рядок 6: запас: від'ємне значення: \"-3\"",
                         "Рядок 7: очікується 5 полів, отримано 4"),
-                out().lines().toList());
+                skippedSection(out()));
+        assertTrue(out().contains("Пропущено рядків: 5"));
         assertFalse(out().contains(NO_RECORDS_MESSAGE));
     }
 
@@ -277,6 +303,77 @@ class MainTest {
 
         assertEquals(0, exitCode);
         assertFalse(err().isEmpty());
+    }
+
+    @Test
+    void consoleTextEqualsReportFileText(@TempDir Path tempDir) throws IOException {
+        Path file = input(tempDir, VALID_RECORD + "\n\nМонітор;Монітори;абв;1;1\n");
+        Path output = tempDir.resolve("reports").resolve("report.txt");
+
+        int exitCode = runWith(file, output, tempDir.resolve("app.log"));
+
+        assertEquals(0, exitCode);
+        assertEquals(out(), Files.readString(output, StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void noValidRecordsStillWritesReportAndExitsWithOne(@TempDir Path tempDir) throws IOException {
+        Path file = input(tempDir, "\n");
+        Path output = tempDir.resolve("report.txt");
+
+        int exitCode = runWith(file, output, tempDir.resolve("app.log"));
+
+        assertEquals(1, exitCode);
+        String report = Files.readString(output, StandardCharsets.UTF_8);
+        assertEquals(out(), report);
+        assertTrue(report.contains(NO_RECORDS_MESSAGE));
+        assertEquals(List.of("Рядок 1: порожній рядок"), skippedSection(report));
+        assertFalse(report.contains("Середня ціна"));
+    }
+
+    @Test
+    void unwritableOutputExitsWithTwo(@TempDir Path tempDir) throws IOException {
+        Path file = input(tempDir, VALID_RECORD + "\n");
+        Path blockingFile = tempDir.resolve("not-a-directory");
+        Files.writeString(blockingFile, "x", StandardCharsets.UTF_8);
+        Path logFile = tempDir.resolve("app.log");
+
+        int exitCode = runWith(file, blockingFile.resolve("report.txt"), logFile);
+
+        assertEquals(2, exitCode);
+        assertTrue(err().contains("Не вдалося записати звіт у файл"), "err was: " + err());
+        String content = logContent(logFile);
+        assertTrue(content.contains("| ERROR | Main.run |"), "log was: " + content);
+        assertTrue(content.contains("\tat "), "log has no stack trace: " + content);
+        assertTrue(content.contains("Shutting down with exit code 2"));
+    }
+
+    @Test
+    void metricsSummaryIsLogged(@TempDir Path tempDir) throws IOException {
+        Path file = input(tempDir, VALID_RECORD + "\n");
+        Path logFile = tempDir.resolve("app.log");
+
+        runWith(file, logFile);
+
+        assertTrue(logContent(logFile).contains(
+                "Metrics: valid=1 averagePrice=6499.00 longestWarrantyMonths=36 totalStock=12"));
+    }
+
+    @Test
+    void sampleInputProducesExpectedReport(@TempDir Path tempDir) throws IOException {
+        Path output = tempDir.resolve("report.txt");
+
+        int exitCode = runWith(Path.of("data", "input.csv"), output, tempDir.resolve("app.log"));
+
+        assertEquals(0, exitCode);
+        String report = out();
+        assertEquals("8", metricValue(report, "Кількість коректних записів"));
+        assertEquals("14030.62 грн", metricValue(report, "Середня ціна"));
+        assertEquals("36", metricValue(report, "Найдовша гарантія, міс."));
+        assertEquals("75", metricValue(report, "Загальний запас, шт."));
+        assertTrue(report.contains("Пропущено рядків: 6"), report);
+        assertEquals(6, skippedSection(report).size());
+        assertEquals(report, Files.readString(output, StandardCharsets.UTF_8));
     }
 
     private static String logContent(Path logFile) throws IOException {
