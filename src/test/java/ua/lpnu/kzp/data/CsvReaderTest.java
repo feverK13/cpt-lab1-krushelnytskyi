@@ -93,6 +93,18 @@ class CsvReaderTest {
     }
 
     @Test
+    void fileWithOnlyBlankLinesKeepsEveryLine(@TempDir Path dir) throws IOException {
+        Path file = write(dir, "\n \n\t\n");
+
+        assertEquals(List.of("", " ", "\t"), CsvReader.readLines(file));
+    }
+
+    @Test
+    void directoryInsteadOfFileThrowsIoException(@TempDir Path dir) {
+        assertThrows(IOException.class, () -> CsvReader.readLines(dir));
+    }
+
+    @Test
     void missingFileThrowsNoSuchFileException(@TempDir Path dir) {
         Path file = dir.resolve("absent.csv");
 

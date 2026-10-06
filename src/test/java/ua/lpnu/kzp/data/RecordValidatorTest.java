@@ -52,6 +52,15 @@ class RecordValidatorTest {
                 result.fields());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {" 5 ", "\t5\t", " \t5\t "})
+    void acceptsNumbersSurroundedBySpacesOrTabs(String number) {
+        LineResult.Valid result =
+                valid("Монітор\t;\tМонітори;" + number + ";" + number + ";" + number);
+
+        assertEquals(List.of("Монітор", "Монітори", "5", "5", "5"), result.fields());
+    }
+
     @Test
     void fieldsOfAValidRecordAreImmutable() {
         List<String> fields = valid("Монітор;Монітори;1;1;1").fields();

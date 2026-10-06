@@ -8,6 +8,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,7 +27,6 @@ class MainTest {
     private static final String VALID_RECORD = "Монітор Dell S2425H;Монітори;6499.00;36;12";
     private static final String NO_RECORDS_MESSAGE = "Немає жодного коректного запису.";
     private static final String SKIPPED_HEADER = "Пропущені рядки:";
-    private static final String BOM = String.valueOf((char) 0xFEFF);
 
     private final ByteArrayOutputStream outBuffer = new ByteArrayOutputStream();
     private final ByteArrayOutputStream errBuffer = new ByteArrayOutputStream();
@@ -45,6 +45,14 @@ class MainTest {
         Path file = dir.resolve("input.csv");
         Files.writeString(file, content, StandardCharsets.UTF_8);
         return file;
+    }
+
+    private static Path fixture(String name) {
+        try {
+            return Path.of(MainTest.class.getResource("/fixtures/" + name).toURI());
+        } catch (URISyntaxException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private int runWith(Path input, Path logFile, String... extraArgs) {
@@ -89,7 +97,8 @@ class MainTest {
         int exitCode = Main.run(new String[] {"--version"}, out, err, tempDir.resolve("app.log"));
 
         assertEquals(0, exitCode);
-        assertEquals(AppVersion.get(), out().strip());
+        assertEquals(AppVersion.describe(), out().strip());
+        assertTrue(out().strip().matches("\\d+\\.\\d+\\.\\d+ \\(build (local|\\d+)\\)"), out());
         assertTrue(err().isEmpty());
     }
 
@@ -153,14 +162,72 @@ class MainTest {
     }
 
     @Test
-    void bomAndCrlfInputIsAccepted(@TempDir Path tempDir) throws IOException {
-        Path file = input(tempDir, BOM + VALID_RECORD + "\r\n" + VALID_RECORD + "\r\n");
+    void bomAndCrlfFixtureIsAccepted(@TempDir Path tempDir) throws IOException {
+        Path file = fixture("bom-crlf.csv");
+        assertEquals(0xEF, Files.readAllBytes(file)[0] & 0xFF, "fixture must start with a BOM");
+        assertTrue(Files.readString(file, StandardCharsets.UTF_8).contains("\r\n"),
+                "fixture must use CRLF line endings");
 
-        int exitCode = runWith(file, tempDir.resolve("app.log"));
+        int exitCode = runWith(file, tempDir.resolve("report.txt"), tempDir.resolve("app.log"));
 
         assertEquals(0, exitCode);
         assertEquals("2", metricValue(out(), "Кількість коректних записів"));
+        assertEquals("200.00 грн", metricValue(out(), "Середня ціна"));
         assertTrue(out().contains("Пропущено рядків: 0"), "out was: " + out());
+    }
+
+    @Test
+    void cyrillicFixtureIsReadAndReportedAsUtf8(@TempDir Path tempDir) throws IOException {
+        Path output = tempDir.resolve("report.txt");
+
+        int exitCode = runWith(fixture("cyrillic.csv"), output, tempDir.resolve("app.log"));
+
+        assertEquals(0, exitCode);
+        String report = Files.readString(output, StandardCharsets.UTF_8);
+        assertEquals("2", metricValue(report, "Кількість коректних записів"));
+        assertEquals("125.00 грн", metricValue(report, "Середня ціна"));
+        assertEquals("12", metricValue(report, "Найдовша гарантія, міс."));
+        assertEquals("14", metricValue(report, "Загальний запас, шт."));
+    }
+
+    @Test
+    void outputIntoMissingNestedDirectoryIsCreated(@TempDir Path tempDir) throws IOException {
+        Path output = tempDir.resolve("a").resolve("b").resolve("c").resolve("report.txt");
+
+        int exitCode = runWith(fixture("cyrillic.csv"), output, tempDir.resolve("app.log"));
+
+        assertEquals(0, exitCode);
+        assertEquals(out(), Files.readString(output, StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void mixedFixtureProducesGoldenReport(@TempDir Path tempDir) throws IOException {
+        Path file = fixture("mixed.csv");
+        Path output = tempDir.resolve("report.txt");
+
+        int exitCode = runWith(file, output, tempDir.resolve("app.log"));
+
+        assertEquals(0, exitCode);
+        String nl = System.lineSeparator();
+        String expected = String.join(nl,
+                "Звіт: електронний магазин",
+                "Вхідний файл: " + file,
+                "",
+                "Показник                                   Значення",
+                "---------------------------------------------------",
+                "Кількість коректних записів                       2",
+                "Середня ціна                           15749.00 грн",
+                "Найдовша гарантія, міс.                          36",
+                "Загальний запас, шт.                             19",
+                "",
+                "Пропущено рядків: 3",
+                "",
+                "Пропущені рядки:",
+                "Рядок 2: ціна: не є числом: \"абв\"",
+                "Рядок 3: порожній рядок",
+                "Рядок 5: гарантія: має бути цілим числом: \"12.5\"") + nl;
+        assertEquals(expected, out());
+        assertEquals(expected, Files.readString(output, StandardCharsets.UTF_8));
     }
 
     @Test
@@ -174,16 +241,23 @@ class MainTest {
     }
 
     @Test
-    void fileWithOnlyInvalidLinesExitsWithOne(@TempDir Path tempDir) throws IOException {
-        Path file = input(tempDir, "абв\n\nМонітор;Монітори;абв;1;1\n");
+    void allInvalidFixtureStillWritesReportAndExitsWithOne(@TempDir Path tempDir)
+            throws IOException {
+        Path output = tempDir.resolve("report.txt");
 
-        int exitCode = runWith(file, tempDir.resolve("app.log"));
+        int exitCode = runWith(fixture("all-invalid.csv"), output, tempDir.resolve("app.log"));
 
         assertEquals(1, exitCode);
-        assertTrue(out().contains(NO_RECORDS_MESSAGE));
-        assertTrue(out().contains("Рядок 1: очікується 5 полів, отримано 1"));
-        assertTrue(out().contains("Рядок 2: порожній рядок"));
-        assertTrue(out().contains("Рядок 3: ціна: не є числом"));
+        String report = Files.readString(output, StandardCharsets.UTF_8);
+        assertEquals(out(), report);
+        assertTrue(report.contains(NO_RECORDS_MESSAGE));
+        assertFalse(report.contains("Середня ціна"));
+        assertEquals(
+                List.of(
+                        "Рядок 1: очікується 5 полів, отримано 1",
+                        "Рядок 2: порожній рядок",
+                        "Рядок 3: ціна: має бути більше нуля: \"0.00\""),
+                skippedSection(report));
     }
 
     @Test
@@ -258,23 +332,29 @@ class MainTest {
     }
 
     @Test
-    void verboseMirrorsLogToStderr(@TempDir Path tempDir) throws IOException {
-        Path file = input(tempDir, VALID_RECORD + "\n");
+    void verboseMirrorsLogToStderrButNotToStdout(@TempDir Path tempDir) throws IOException {
+        Path file = input(tempDir, VALID_RECORD + "\nМонітор;Монітори;абв;1;1\n");
+        Path output = tempDir.resolve("report.txt");
 
-        int exitCode = runWith(file, tempDir.resolve("app.log"), "--verbose");
+        int exitCode = runWith(file, output, tempDir.resolve("app.log"), "--verbose");
 
         assertEquals(0, exitCode);
         assertTrue(err().contains("Application started"));
+        assertTrue(err().contains("| WARN | InputProcessor.process | line=2"));
         assertTrue(err().contains("Shutting down with exit code 0"));
+        assertEquals(Files.readString(output, StandardCharsets.UTF_8), out());
     }
 
     @Test
-    void withoutVerboseStderrStaysEmptyOnNormalRun(@TempDir Path tempDir) throws IOException {
+    void withoutVerboseLoggingLeavesStdoutAndStderrUntouched(@TempDir Path tempDir)
+            throws IOException {
         Path file = input(tempDir, VALID_RECORD + "\nМонітор;Монітори;абв;1;1\n");
+        Path output = tempDir.resolve("report.txt");
 
-        runWith(file, tempDir.resolve("app.log"));
+        runWith(file, output, tempDir.resolve("app.log"));
 
         assertTrue(err().isEmpty(), "err was: " + err());
+        assertEquals(Files.readString(output, StandardCharsets.UTF_8), out());
     }
 
     @Test
@@ -303,32 +383,6 @@ class MainTest {
 
         assertEquals(0, exitCode);
         assertFalse(err().isEmpty());
-    }
-
-    @Test
-    void consoleTextEqualsReportFileText(@TempDir Path tempDir) throws IOException {
-        Path file = input(tempDir, VALID_RECORD + "\n\nМонітор;Монітори;абв;1;1\n");
-        Path output = tempDir.resolve("reports").resolve("report.txt");
-
-        int exitCode = runWith(file, output, tempDir.resolve("app.log"));
-
-        assertEquals(0, exitCode);
-        assertEquals(out(), Files.readString(output, StandardCharsets.UTF_8));
-    }
-
-    @Test
-    void noValidRecordsStillWritesReportAndExitsWithOne(@TempDir Path tempDir) throws IOException {
-        Path file = input(tempDir, "\n");
-        Path output = tempDir.resolve("report.txt");
-
-        int exitCode = runWith(file, output, tempDir.resolve("app.log"));
-
-        assertEquals(1, exitCode);
-        String report = Files.readString(output, StandardCharsets.UTF_8);
-        assertEquals(out(), report);
-        assertTrue(report.contains(NO_RECORDS_MESSAGE));
-        assertEquals(List.of("Рядок 1: порожній рядок"), skippedSection(report));
-        assertFalse(report.contains("Середня ціна"));
     }
 
     @Test
