@@ -3,18 +3,21 @@ package ua.lpnu.kzp;
 import ua.lpnu.kzp.cli.CliParseResult;
 import ua.lpnu.kzp.cli.CliParser;
 import ua.lpnu.kzp.data.CsvReader;
-import ua.lpnu.kzp.data.LineResult;
-import ua.lpnu.kzp.data.RecordValidator;
+import ua.lpnu.kzp.data.InputProcessor;
 import ua.lpnu.kzp.logging.AppLogger;
+import ua.lpnu.kzp.metrics.Metrics;
+import ua.lpnu.kzp.metrics.MetricsCalculator;
+import ua.lpnu.kzp.report.ReportFormatter;
+import ua.lpnu.kzp.report.ReportWriter;
 
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 /**
  * Entry point of the console application for the "Electronics store" domain.
@@ -33,12 +36,16 @@ public final class Main {
     }
 
     /**
-     * Application entry point.
+     * Application entry point. Console output is always encoded as UTF-8.
      *
      * @param args command line arguments
      */
     public static void main(String[] args) {
-        int exitCode = run(args, System.out, System.err, Path.of("out", "app.log"));
+        PrintStream out = ConsoleStreams.utf8(System.out);
+        PrintStream err = ConsoleStreams.utf8(System.err);
+        int exitCode = run(args, out, err, Path.of("out", "app.log"));
+        out.flush();
+        err.flush();
         if (exitCode != EXIT_OK) {
             System.exit(exitCode);
         }
@@ -81,60 +88,41 @@ public final class Main {
             logger.info("Main.run", "Resolved input path: " + run.input());
             logger.info("Main.run", "Resolved output path: " + run.output());
 
-            List<String> lines;
-            try {
-                lines = CsvReader.readLines(run.input());
-            } catch (IOException e) {
-                logger.error("Main.run", "Failed to read input file " + run.input(), e);
-                err.print(readErrorMessage(run.input(), e));
-                logger.info("Main.run", "Shutting down with exit code " + EXIT_IO_ERROR);
-                return EXIT_IO_ERROR;
-            }
-            logger.info("Main.run", "Read " + lines.size() + " lines from " + run.input());
-
-            int exitCode = processLines(lines, out, logger);
+            int exitCode = process(run, out, err, logger);
             logger.info("Main.run", "Shutting down with exit code " + exitCode);
             return exitCode;
         }
     }
 
-    /**
-     * Validates every line, reports the skipped ones and collects the valid records.
-     *
-     * @param lines  raw input lines, in file order
-     * @param out    stream the Ukrainian skipped-line messages are printed to
-     * @param logger logger receiving one warning per skipped line and the final summary
-     * @return {@link #EXIT_OK}, or {@link #EXIT_NO_VALID_RECORDS} if no record passed validation
-     */
-    private static int processLines(List<String> lines, PrintStream out, AppLogger logger) {
-        List<String[]> records = new ArrayList<>();
-        int skipped = 0;
-
-        for (int index = 0; index < lines.size(); index++) {
-            LineResult result = RecordValidator.validate(index + 1, lines.get(index));
-            switch (result) {
-                case LineResult.Valid valid -> records.add(valid.fields().toArray(new String[0]));
-                case LineResult.Invalid invalid -> {
-                    skipped++;
-                    out.printf(Locale.ROOT, "%s%n", invalid.message());
-                    logger.warn(
-                            "Main.processLines",
-                            invalid.lineNumber(),
-                            invalid.logField(),
-                            "Skipped line: " + invalid.logReason());
-                }
-            }
+    private static int process(CliParseResult.Run run, PrintStream out, PrintStream err, AppLogger logger) {
+        List<String> lines;
+        try {
+            lines = CsvReader.readLines(run.input());
+        } catch (IOException e) {
+            logger.error("Main.run", "Failed to read input file " + run.input(), e);
+            err.print(readErrorMessage(run.input(), e));
+            return EXIT_IO_ERROR;
         }
+        logger.info("Main.run", "Read " + lines.size() + " lines from " + run.input());
 
-        logger.info(
-                "Main.processLines",
-                "Validation summary: " + records.size() + " valid, " + skipped + " skipped");
+        InputProcessor.ProcessedInput input = InputProcessor.process(lines, logger);
 
-        if (records.isEmpty()) {
-            out.printf(Locale.ROOT, "Немає жодного коректного запису.%n");
-            return EXIT_NO_VALID_RECORDS;
+        Optional<Metrics> metrics = MetricsCalculator.calculate(input.records());
+        logger.info("Main.run", metrics.map(m -> "Metrics: " + m.summary())
+                .orElse("No valid records, metrics are not computed"));
+
+        String report = ReportFormatter.format(run.input(), metrics, input.skippedMessages());
+        out.print(report);
+        try {
+            ReportWriter.write(run.output(), report);
+        } catch (IOException e) {
+            logger.error("Main.run", "Failed to write report file " + run.output(), e);
+            err.printf(Locale.ROOT, "Не вдалося записати звіт у файл %s: %s%n", run.output(), e);
+            return EXIT_IO_ERROR;
         }
-        return EXIT_OK;
+        logger.info("Main.run", "Report written to " + run.output());
+
+        return metrics.isPresent() ? EXIT_OK : EXIT_NO_VALID_RECORDS;
     }
 
     private static String readErrorMessage(Path input, IOException e) {
