@@ -97,7 +97,8 @@ class MainTest {
         int exitCode = Main.run(new String[] {"--version"}, out, err, tempDir.resolve("app.log"));
 
         assertEquals(0, exitCode);
-        assertEquals(AppVersion.get(), out().strip());
+        assertEquals(AppVersion.describe(), out().strip());
+        assertTrue(out().strip().matches("\\d+\\.\\d+\\.\\d+ \\(build (local|\\d+)\\)"), out());
         assertTrue(err().isEmpty());
     }
 

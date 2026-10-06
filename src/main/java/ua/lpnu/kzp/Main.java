@@ -69,7 +69,7 @@ public final class Main {
                 yield EXIT_OK;
             }
             case CliParseResult.Version ignored -> {
-                out.printf(Locale.ROOT, "%s%n", AppVersion.get());
+                out.printf(Locale.ROOT, "%s%n", AppVersion.describe());
                 yield EXIT_OK;
             }
             case CliParseResult.Error error -> {

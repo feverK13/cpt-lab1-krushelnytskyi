@@ -18,6 +18,8 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <junit.version>5.12.2</junit.version>
         <spotbugs.version>4.9.7.0</spotbugs.version>
+        <!-- CI run number; CI passes -Dci.build.number, local builds keep this default. -->
+        <ci.build.number>local</ci.build.number>
         <jacoco.version>0.8.15</jacoco.version>
         <!-- Minimum covered ratios enforced by jacoco:check in verify. -->
         <jacoco.instruction.minimum>0.90</jacoco.instruction.minimum>
@@ -135,6 +137,10 @@
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>ua.lpnu.kzp.Main</mainClass>
+                                    <manifestEntries>
+                                        <Implementation-Version>${project.version}</Implementation-Version>
+                                        <Build-Number>${ci.build.number}</Build-Number>
+                                    </manifestEntries>
                                 </transformer>
                             </transformers>
                         </configuration>
