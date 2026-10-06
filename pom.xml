@@ -22,7 +22,7 @@
         <ci.build.number>local</ci.build.number>
         <jacoco.version>0.8.15</jacoco.version>
         <!-- Minimum covered ratios enforced by jacoco:check in verify. -->
-        <jacoco.instruction.minimum>0.90</jacoco.instruction.minimum>
+        <jacoco.instruction.minimum>0.95</jacoco.instruction.minimum>
         <jacoco.branch.minimum>0.90</jacoco.branch.minimum>
     </properties>
 
