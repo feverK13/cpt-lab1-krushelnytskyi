@@ -251,7 +251,7 @@ class MainTest {
         assertEquals(0, exitCode);
         String content = logContent(logFile);
         assertTrue(
-                content.contains("| WARN | Main.processLines | line=2 field=stock | "
+                content.contains("| WARN | InputProcessor.process | line=2 field=stock | "
                         + "Skipped line: negative value: \"-3\""),
                 "log was: " + content);
         assertTrue(content.contains("Validation summary: 1 valid, 1 skipped"));
@@ -289,7 +289,7 @@ class MainTest {
         assertTrue(content.contains("Application started"));
         assertTrue(content.contains("Shutting down with exit code 0"));
         for (String line : Files.readAllLines(logFile, StandardCharsets.UTF_8)) {
-            assertTrue(line.contains(" | INFO | Main."), "line was: " + line);
+            assertTrue(line.contains(" | INFO | "), "line was: " + line);
         }
     }
 

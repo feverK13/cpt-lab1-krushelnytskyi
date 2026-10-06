@@ -3,8 +3,7 @@ package ua.lpnu.kzp;
 import ua.lpnu.kzp.cli.CliParseResult;
 import ua.lpnu.kzp.cli.CliParser;
 import ua.lpnu.kzp.data.CsvReader;
-import ua.lpnu.kzp.data.LineResult;
-import ua.lpnu.kzp.data.RecordValidator;
+import ua.lpnu.kzp.data.InputProcessor;
 import ua.lpnu.kzp.logging.AppLogger;
 import ua.lpnu.kzp.metrics.Metrics;
 import ua.lpnu.kzp.metrics.MetricsCalculator;
@@ -15,7 +14,6 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -107,14 +105,13 @@ public final class Main {
         }
         logger.info("Main.run", "Read " + lines.size() + " lines from " + run.input());
 
-        List<String[]> records = new ArrayList<>();
-        List<String> skippedMessages = processLines(lines, records, logger);
+        InputProcessor.ProcessedInput input = InputProcessor.process(lines, logger);
 
-        Optional<Metrics> metrics = MetricsCalculator.calculate(records);
+        Optional<Metrics> metrics = MetricsCalculator.calculate(input.records());
         logger.info("Main.run", metrics.map(m -> "Metrics: " + m.summary())
                 .orElse("No valid records, metrics are not computed"));
 
-        String report = ReportFormatter.format(run.input(), metrics, skippedMessages);
+        String report = ReportFormatter.format(run.input(), metrics, input.skippedMessages());
         out.print(report);
         try {
             ReportWriter.write(run.output(), report);
@@ -126,38 +123,6 @@ public final class Main {
         logger.info("Main.run", "Report written to " + run.output());
 
         return metrics.isPresent() ? EXIT_OK : EXIT_NO_VALID_RECORDS;
-    }
-
-    /**
-     * Validates every line, logs the skipped ones and collects the valid records.
-     *
-     * @param lines   raw input lines, in file order
-     * @param records receives the trimmed fields of every valid record
-     * @param logger  logger receiving one warning per skipped line and the validation summary
-     * @return the Ukrainian skipped-line messages, in file order
-     */
-    private static List<String> processLines(List<String> lines, List<String[]> records, AppLogger logger) {
-        List<String> skippedMessages = new ArrayList<>();
-
-        for (int index = 0; index < lines.size(); index++) {
-            LineResult result = RecordValidator.validate(index + 1, lines.get(index));
-            switch (result) {
-                case LineResult.Valid valid -> records.add(valid.fields().toArray(new String[0]));
-                case LineResult.Invalid invalid -> {
-                    skippedMessages.add(invalid.message());
-                    logger.warn(
-                            "Main.processLines",
-                            invalid.lineNumber(),
-                            invalid.logField(),
-                            "Skipped line: " + invalid.logReason());
-                }
-            }
-        }
-
-        logger.info(
-                "Main.processLines",
-                "Validation summary: " + records.size() + " valid, " + skippedMessages.size() + " skipped");
-        return skippedMessages;
     }
 
     private static String readErrorMessage(Path input, IOException e) {
